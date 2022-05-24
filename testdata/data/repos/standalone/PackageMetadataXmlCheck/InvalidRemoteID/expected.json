@@ -1,0 +1,6 @@
+{"__class__": "InvalidRemoteID", "category": "PackageMetadataXmlCheck", "package": "InvalidRemoteID", "id_type": "bitbucket", "id_value": "/foo", "expected": "{username}/{project}"}
+{"__class__": "InvalidRemoteID", "category": "PackageMetadataXmlCheck", "package": "InvalidRemoteID", "id_type": "bitbucket", "id_value": "foo", "expected": "{username}/{project}"}
+{"__class__": "InvalidRemoteID", "category": "PackageMetadataXmlCheck", "package": "InvalidRemoteID", "id_type": "bitbucket", "id_value": "foo/", "expected": "{username}/{project}"}
+{"__class__": "InvalidRemoteID", "category": "PackageMetadataXmlCheck", "package": "InvalidRemoteID", "id_type": "bitbucket", "id_value": "foo/bar/", "expected": "{username}/{project}"}
+{"__class__": "InvalidRemoteID", "category": "PackageMetadataXmlCheck", "package": "InvalidRemoteID", "id_type": "bitbucket", "id_value": "foo/bar/baz", "expected": "{username}/{project}"}
+{"__class__": "InvalidRemoteID", "category": "PackageMetadataXmlCheck", "package": "InvalidRemoteID", "id_type": "bitbucket", "id_value": "https://bitbucket.org/foo/bar", "expected": "{username}/{project}"}

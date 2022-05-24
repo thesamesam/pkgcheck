@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "http://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="person">
+		<email>maintainer@random.email</email>
+	</maintainer>
+	<upstream>
+		<remote-id type="bitbucket">foo</remote-id>
+		<remote-id type="bitbucket">/foo</remote-id>
+		<remote-id type="bitbucket">foo/</remote-id>
+		<remote-id type="bitbucket">foo/bar/</remote-id>
+		<remote-id type="bitbucket">foo/bar/baz</remote-id>
+		<remote-id type="bitbucket">https://bitbucket.org/foo/bar</remote-id>
+	</upstream>
+</pkgmetadata>
