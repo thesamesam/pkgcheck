@@ -78,6 +78,13 @@ class PythonMissingRequiredUse(results.VersionResult, results.Warning):
         return 'missing REQUIRED_USE="${PYTHON_REQUIRED_USE}"'
 
 
+class PythonMissingOptionalRequiredUse(PythonMissingRequiredUse):
+    """Package has DISTUTILS_OPTIONAL set but missing PYTHON_REQUIRED_USE.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
 class PythonMissingDeps(results.VersionResult, results.Warning):
     """Package is missing PYTHON_DEPS.
 
@@ -102,13 +109,8 @@ class PythonMissingOptionalDeps(PythonMissingDeps):
     """Package has DISTUTILS_OPTIONAL set but missing PYTHON_DEPS.
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    @property
-    def desc(self):
-        return f'missing {self.dep_type}="${{{self.dep_value}}}"'
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 class PythonRuntimeDepInAnyR1(results.VersionResult, results.Warning):
     """Package depends on Python at runtime but uses any-r1 eclass.
@@ -292,7 +294,7 @@ class PythonOptionalCheck(Check):
     _source = (sources.EbuildParseRepoSource, (), (('source', _restricted_source),))
 
     known_results = frozenset([
-        PythonMissingDeps, PythonMissingRequiredUse
+        PythonMissingOptionalDeps, PythonMissingOptionalRequiredUse
     ])
 
     def feed(self, item):
@@ -328,11 +330,11 @@ class PythonOptionalCheck(Check):
 
         if has_distutils_optional and has_distutils_pep517_non_standalone:
             # We always need BDEPEND for these if != standalone.
-            yield PythonMissingDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
+            yield PythonMissingOptionalDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
         if not has_distutils_required_use:
             yield PythonMissingRequiredUse(pkg=item)
         if not has_distutils_python_deps:
-            yield PythonMissingDeps("RDEPEND", pkg=item)
+            yield PythonMissingOptionalDeps("RDEPEND", pkg=item)
 
 
 class PythonCompatCheck(Check):
