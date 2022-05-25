@@ -271,17 +271,16 @@ class PythonCompatUpdate(results.VersionResult, results.Info):
 class PythonOptionalDepsCheck(Check):
     """Check Python ebuilds for missing optional dependencies.
 
-    We want ebuilds with DISTUTILS_OPTIONAL, DISTUTILS_USE_PEP517!=standalone,
-    without the string ${DISTUTILS_DEPS} anywhere.
+    Problematic cases:
+    1. DISTUTILS_OPTIONAL, DISTUTILS_USE_PEP517 != standalone, no ${DISTUTILS_DEPS} anywhere
+    2. DISTUTILS_OPTIONAL, no PYTHON_REQUIRED_USE
+    3. DISTUTILS_OPTIONAL, no PYTHON_DEPS in RDEPEND
     """
-    # TODO: check we're inheriting distutils-r1 first
-    #_restricted_source = (sources.RestrictionRepoSource, (
-    #    packages.PackageRestriction('inherited', values.ContainmentMatch2('distutils-r1')),))
-    #_source = (sources.EbuildFileRepoSource, (), (('source', _restricted_source),))
-    _source = sources.EbuildParseRepoSource
+    _restricted_source = (sources.RestrictionRepoSource, (
+        packages.PackageRestriction('inherited', values.ContainmentMatch2('distutils-r1')),))
+    _source = (sources.EbuildParseRepoSource, (), (('source', _restricted_source),))
 
     def feed(self, item):
-        # TODO: Use a regex to filter this first?
         has_distutils_optional = None
         has_distutils_pep517_non_standalone = None
         needed_vars = []
@@ -298,12 +297,12 @@ class PythonOptionalDepsCheck(Check):
                 var_val = item.node_str(var_node.children[-1])
 
                 #full_line = print(item.node_str(var_node))
-                print(f"{var_name=}, {var_val=}")
+                #print(f"{var_name=}, {var_val=}")
 
                 # For DISTUTILS_USE_PEP517=standalone, the eclass doesn't
                 # provide ${DISTUTILS_DEPS}.
                 has_distutils_pep517_non_standalone = (var_val != "standalone")
-                print(f"{has_distutils_pep517_non_standalone=}")
+                #print(f"{has_distutils_pep517_non_standalone=}")
             elif var_name == "DISTUTILS_OPTIONAL" and not has_distutils_optional:
                 has_distutils_optional = True
 
@@ -316,23 +315,6 @@ class PythonOptionalDepsCheck(Check):
             # We're only interested in the top level bits, as
             # the relevant variables should be set in global scope.
             #print(node.child_by_field_name('name'))
-
-        return
-        func_prefix = f'{eclass.name}_'
-        for func_node, _ in bash.func_query.captures(eclass.tree.root_node):
-            func_name = eclass.node_str(func_node.child_by_field_name('name'))
-            if not func_name.startswith(func_prefix):
-                continue
-            phase = func_name[len(func_prefix):]
-            if variables := self.eclass_phase_vars(eclass, phase):
-                usage = defaultdict(set)
-                for var_node, _ in bash.var_query.captures(func_node):
-                    var_name = eclass.node_str(var_node)
-                    if var_name in variables:
-                        lineno, colno = var_node.start_point
-                        usage[var_name].add(lineno + 1)
-                for var, lines in sorted(usage.items()):
-                    yield EclassVariableScope(var, func_name, lines=sorted(lines), eclass=eclass.name)
 
 class PythonCompatCheck(Check):
     """Check python ebuilds for possible PYTHON_COMPAT updates.
