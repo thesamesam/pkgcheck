@@ -284,20 +284,19 @@ class PythonCompatUpdate(results.VersionResult, results.Info):
 class PythonOptionalCheck(Check):
     """Check Python ebuilds for missing optional dependencies.
 
-    Problematic cases:
-    1. DISTUTILS_OPTIONAL, DISTUTILS_USE_PEP517 != standalone, no ${DISTUTILS_DEPS} anywhere
-    2. DISTUTILS_OPTIONAL, no PYTHON_REQUIRED_USE
-    3. DISTUTILS_OPTIONAL, no PYTHON_DEPS in RDEPEND
+    The problematic case for us is DISTUTILS_OPTIONAL,
+    DISTUTILS_USE_PEP517 != standalone, no ${DISTUTILS_DEPS} anywhere.
     """
     _restricted_source = (sources.RestrictionRepoSource, (
         packages.PackageRestriction('inherited', values.ContainmentMatch2('distutils-r1')),))
     _source = (sources.EbuildParseRepoSource, (), (('source', _restricted_source),))
 
     known_results = frozenset([
-        PythonMissingOptionalDeps, PythonMissingOptionalRequiredUse
+        PythonMissingOptionalDeps
     ])
 
     def feed(self, item):
+        return None
         has_distutils_optional = None
         has_distutils_pep517_non_standalone = None
         has_distutils_required_use = False
