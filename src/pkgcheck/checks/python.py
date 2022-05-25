@@ -300,7 +300,6 @@ class PythonOptionalCheck(Check):
             if "DISTUTILS_DEPS" in item.node_str(var_node.parent):
                 # If they're referencing the eclass' dependency variable,
                 # there's nothing for us to do anyway.
-                has_distutils_optional = False
                 return
 
             if var_name == "DISTUTILS_USE_PEP517" and not has_distutils_pep517_non_standalone:
