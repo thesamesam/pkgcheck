@@ -98,6 +98,17 @@ class PythonMissingDeps(results.VersionResult, results.Warning):
     def desc(self):
         return f'missing {self.dep_type}="${{{self.dep_value}}}"'
 
+class PythonMissingOptionalDeps(PythonMissingDeps):
+    """Package has DISTUTILS_OPTIONAL set but missing PYTHON_DEPS.
+    """
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @property
+    def desc(self):
+        return f'missing {self.dep_type}="${{{self.dep_value}}}"'
+
 
 class PythonRuntimeDepInAnyR1(results.VersionResult, results.Warning):
     """Package depends on Python at runtime but uses any-r1 eclass.
@@ -268,7 +279,7 @@ class PythonCompatUpdate(results.VersionResult, results.Info):
         updates = ', '.join(self.updates)
         return f'PYTHON_COMPAT update{s} available: {updates}'
 
-class PythonOptionalDepsCheck(Check):
+class PythonOptionalCheck(Check):
     """Check Python ebuilds for missing optional dependencies.
 
     Problematic cases:
@@ -291,54 +302,33 @@ class PythonOptionalDepsCheck(Check):
         has_distutils_python_deps = False
         needed_vars = []
 
-        checks = {
-            "MissingDistutilsDeps": None,
-            "MissingRequiredUse": None,
-            "MissingPythonDeps": None,
-        }
-
         for var_node, _ in bash.var_assign_query.captures(item.tree.root_node):
             var_name = item.node_str(var_node.child_by_field_name('name'))
 
-            for check in [check_name for check_name, check_status in checks.items() if check_status is None]:
-                if var_name == "DISTUTILS_OPTIONAL":
-                    has_distutils_optional = True
+            if var_name == "DISTUTILS_OPTIONAL":
+                has_distutils_optional = True
 
-                if check == "MissingDistutilsDeps":
-                    if "DISTUTILS_DEPS" in item.node_str(var_node.parent):
-                        # If they're referencing the eclass' dependency variable,
-                        # there's nothing for us to do anyway.
-                        checks[check] = True
-                        continue
+            if "DISTUTILS_DEPS" in item.node_str(var_node.parent):
+                # If they're referencing the eclass' dependency variable,
+                # there's nothing for us to do anyway.
+                has_distutils_optional = False
 
-                    if var_name == "DISTUTILS_USE_PEP517" and not has_distutils_pep517_non_standalone:
-                        var_val = item.node_str(var_node.children[-1])
+            if var_name == "DISTUTILS_USE_PEP517" and not has_distutils_pep517_non_standalone:
+                var_val = item.node_str(var_node.children[-1])
 
-                        # For DISTUTILS_USE_PEP517=standalone, the eclass doesn't
-                        # provide ${DISTUTILS_DEPS}.
-                        has_distutils_pep517_non_standalone = (var_val != "standalone")
+                # For DISTUTILS_USE_PEP517=standalone, the eclass doesn't
+                # provide ${DISTUTILS_DEPS}.
+                has_distutils_pep517_non_standalone = (var_val != "standalone")
 
-                    if all([has_distutils_optional, has_distutils_pep517_non_standalone]):
-                        # We always need BDEPEND for these if != standalone.
-                        yield PythonMissingDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
+            if "PYTHON_REQUIRED_USE" in item.node_str(var_node.parent):
+                has_distutils_required_use = True
 
-                        checks[check] = True
-                        continue
+            if "PYTHON_DEPS" in item.node_str(var_node.parent):
+                has_distutils_python_deps = True
 
-                elif check == "MissingRequiredUse":
-                    if "PYTHON_REQUIRED_USE" in item.node_str(var_node.parent):
-                        has_distutils_required_use = True
-
-                        checks[check] = True
-                        continue
-
-                elif check == "MissingPythonDeps":
-                    if "PYTHON_DEPS" in item.node_str(var_node.parent):
-                        has_distutils_python_deps = True
-
-                        checks[check] = True
-                        continue
-
+        if has_distutils_optional and has_distutils_pep517_non_standalone:
+            # We always need BDEPEND for these if != standalone.
+            yield PythonMissingDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
         if not has_distutils_required_use:
             yield PythonMissingRequiredUse(pkg=item)
         if not has_distutils_python_deps:
