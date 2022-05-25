@@ -8,7 +8,7 @@ from pkgcore.restrictions.boolean import JustOneRestriction, OrRestriction
 from snakeoil.sequences import iflatten_instance
 from snakeoil.strings import pluralism
 
-from .. import addons, results
+from .. import addons, bash, results, sources
 from . import Check
 
 # NB: distutils-r1 inherits one of the first two
@@ -89,13 +89,14 @@ class PythonMissingDeps(results.VersionResult, results.Warning):
     in appropriate USE conditionals.
     """
 
-    def __init__(self, dep_type, **kwargs):
+    def __init__(self, dep_type, dep_value=None, **kwargs):
         super().__init__(**kwargs)
         self.dep_type = dep_type
+        self.dep_value = dep_value or "PYTHON_DEPS"
 
     @property
     def desc(self):
-        return f'missing {self.dep_type}="${{PYTHON_DEPS}}"'
+        return f'missing {self.dep_type}="${{{self.dep_value}}}"'
 
 
 class PythonRuntimeDepInAnyR1(results.VersionResult, results.Warning):
@@ -267,6 +268,71 @@ class PythonCompatUpdate(results.VersionResult, results.Info):
         updates = ', '.join(self.updates)
         return f'PYTHON_COMPAT update{s} available: {updates}'
 
+class PythonOptionalDepsCheck(Check):
+    """Check Python ebuilds for missing optional dependencies.
+
+    We want ebuilds with DISTUTILS_OPTIONAL, DISTUTILS_USE_PEP517!=standalone,
+    without the string ${DISTUTILS_DEPS} anywhere.
+    """
+    # TODO: check we're inheriting distutils-r1 first
+    #_restricted_source = (sources.RestrictionRepoSource, (
+    #    packages.PackageRestriction('inherited', values.ContainmentMatch2('distutils-r1')),))
+    #_source = (sources.EbuildFileRepoSource, (), (('source', _restricted_source),))
+    _source = sources.EbuildParseRepoSource
+
+    def feed(self, item):
+        # TODO: Use a regex to filter this first?
+        has_distutils_optional = None
+        has_distutils_pep517_non_standalone = None
+        needed_vars = []
+
+        for var_node, _ in bash.var_assign_query.captures(item.tree.root_node):
+            var_name = item.node_str(var_node.child_by_field_name('name'))
+
+            if "DISTUTILS_DEPS" in item.node_str(var_node.parent):
+                # If they're referencing the eclass' dependency variable,
+                # there's nothing for us to do anyway.
+                break
+
+            if var_name == "DISTUTILS_USE_PEP517" and not has_distutils_pep517_non_standalone:
+                var_val = item.node_str(var_node.children[-1])
+
+                #full_line = print(item.node_str(var_node))
+                print(f"{var_name=}, {var_val=}")
+
+                # For DISTUTILS_USE_PEP517=standalone, the eclass doesn't
+                # provide ${DISTUTILS_DEPS}.
+                has_distutils_pep517_non_standalone = (var_val != "standalone")
+                print(f"{has_distutils_pep517_non_standalone=}")
+            elif var_name == "DISTUTILS_OPTIONAL" and not has_distutils_optional:
+                has_distutils_optional = True
+
+            if all([has_distutils_optional, has_distutils_pep517_non_standalone]):
+                # We always need BDEPEND for these if != standalone.
+                yield PythonMissingDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
+                break
+
+        #for node, _ in bash.var_assign_query(item.root_node):
+            # We're only interested in the top level bits, as
+            # the relevant variables should be set in global scope.
+            #print(node.child_by_field_name('name'))
+
+        return
+        func_prefix = f'{eclass.name}_'
+        for func_node, _ in bash.func_query.captures(eclass.tree.root_node):
+            func_name = eclass.node_str(func_node.child_by_field_name('name'))
+            if not func_name.startswith(func_prefix):
+                continue
+            phase = func_name[len(func_prefix):]
+            if variables := self.eclass_phase_vars(eclass, phase):
+                usage = defaultdict(set)
+                for var_node, _ in bash.var_query.captures(func_node):
+                    var_name = eclass.node_str(var_node)
+                    if var_name in variables:
+                        lineno, colno = var_node.start_point
+                        usage[var_name].add(lineno + 1)
+                for var, lines in sorted(usage.items()):
+                    yield EclassVariableScope(var, func_name, lines=sorted(lines), eclass=eclass.name)
 
 class PythonCompatCheck(Check):
     """Check python ebuilds for possible PYTHON_COMPAT updates.
