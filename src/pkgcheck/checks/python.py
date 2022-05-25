@@ -296,11 +296,8 @@ class PythonOptionalCheck(Check):
     ])
 
     def feed(self, item):
-        return None
         has_distutils_optional = None
         has_distutils_pep517_non_standalone = None
-        has_distutils_required_use = False
-        has_distutils_python_deps = False
         needed_vars = []
 
         for var_node, _ in bash.var_assign_query.captures(item.tree.root_node):
@@ -321,19 +318,9 @@ class PythonOptionalCheck(Check):
                 # provide ${DISTUTILS_DEPS}.
                 has_distutils_pep517_non_standalone = (var_val != "standalone")
 
-            if "PYTHON_REQUIRED_USE" in item.node_str(var_node.parent):
-                has_distutils_required_use = True
-
-            if "PYTHON_DEPS" in item.node_str(var_node.parent):
-                has_distutils_python_deps = True
-
         if has_distutils_optional and has_distutils_pep517_non_standalone:
             # We always need BDEPEND for these if != standalone.
             yield PythonMissingOptionalDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
-        if not has_distutils_required_use:
-            yield PythonMissingRequiredUse(pkg=item)
-        if not has_distutils_python_deps:
-            yield PythonMissingOptionalDeps("RDEPEND", pkg=item)
 
 
 class PythonCompatCheck(Check):
