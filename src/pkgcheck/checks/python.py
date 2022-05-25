@@ -77,14 +77,6 @@ class PythonMissingRequiredUse(results.VersionResult, results.Warning):
     def desc(self):
         return 'missing REQUIRED_USE="${PYTHON_REQUIRED_USE}"'
 
-
-class PythonMissingOptionalRequiredUse(PythonMissingRequiredUse):
-    """Package has DISTUTILS_OPTIONAL set but missing PYTHON_REQUIRED_USE.
-    """
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
 class PythonMissingDeps(results.VersionResult, results.Warning):
     """Package is missing PYTHON_DEPS.
 
@@ -285,7 +277,7 @@ class PythonOptionalCheck(Check):
     """Check Python ebuilds for missing optional dependencies.
 
     The problematic case for us is DISTUTILS_OPTIONAL,
-    DISTUTILS_USE_PEP517 != standalone, no ${DISTUTILS_DEPS} anywhere.
+    DISTUTILS_USE_PEP517 != standalone, but no ${DISTUTILS_DEPS} anywhere.
     """
     _restricted_source = (sources.RestrictionRepoSource, (
         packages.PackageRestriction('inherited', values.ContainmentMatch2('distutils-r1')),))
@@ -298,7 +290,6 @@ class PythonOptionalCheck(Check):
     def feed(self, item):
         has_distutils_optional = None
         has_distutils_pep517_non_standalone = None
-        needed_vars = []
 
         for var_node, _ in bash.var_assign_query.captures(item.tree.root_node):
             var_name = item.node_str(var_node.child_by_field_name('name'))
