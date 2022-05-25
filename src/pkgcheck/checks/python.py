@@ -301,6 +301,7 @@ class PythonOptionalCheck(Check):
                 # If they're referencing the eclass' dependency variable,
                 # there's nothing for us to do anyway.
                 has_distutils_optional = False
+                return
 
             if var_name == "DISTUTILS_USE_PEP517" and not has_distutils_pep517_non_standalone:
                 var_val = item.node_str(var_node.children[-1])
@@ -309,9 +310,10 @@ class PythonOptionalCheck(Check):
                 # provide ${DISTUTILS_DEPS}.
                 has_distutils_pep517_non_standalone = (var_val != "standalone")
 
-        if has_distutils_optional and has_distutils_pep517_non_standalone:
-            # We always need BDEPEND for these if != standalone.
-            yield PythonMissingOptionalDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
+            if has_distutils_optional and has_distutils_pep517_non_standalone:
+                # We always need BDEPEND for these if != standalone.
+                yield PythonMissingOptionalDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
+                break
 
 
 class PythonCompatCheck(Check):
