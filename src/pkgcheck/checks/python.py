@@ -280,41 +280,70 @@ class PythonOptionalDepsCheck(Check):
         packages.PackageRestriction('inherited', values.ContainmentMatch2('distutils-r1')),))
     _source = (sources.EbuildParseRepoSource, (), (('source', _restricted_source),))
 
+    known_results = frozenset([
+        PythonMissingDeps, PythonMissingRequiredUse
+    ])
+
     def feed(self, item):
         has_distutils_optional = None
         has_distutils_pep517_non_standalone = None
+        has_distutils_required_use = False
+        has_distutils_python_deps = False
         needed_vars = []
+
+        checks = {
+            "MissingDistutilsDeps": None,
+            "MissingRequiredUse": None,
+            "MissingPythonDeps": None,
+        }
 
         for var_node, _ in bash.var_assign_query.captures(item.tree.root_node):
             var_name = item.node_str(var_node.child_by_field_name('name'))
 
-            if "DISTUTILS_DEPS" in item.node_str(var_node.parent):
-                # If they're referencing the eclass' dependency variable,
-                # there's nothing for us to do anyway.
-                break
+            for check in [check_name for check_name, check_status in checks.items() if check_status is None]:
+                if var_name == "DISTUTILS_OPTIONAL":
+                    has_distutils_optional = True
 
-            if var_name == "DISTUTILS_USE_PEP517" and not has_distutils_pep517_non_standalone:
-                var_val = item.node_str(var_node.children[-1])
+                if check == "MissingDistutilsDeps":
+                    if "DISTUTILS_DEPS" in item.node_str(var_node.parent):
+                        # If they're referencing the eclass' dependency variable,
+                        # there's nothing for us to do anyway.
+                        checks[check] = True
+                        continue
 
-                #full_line = print(item.node_str(var_node))
-                #print(f"{var_name=}, {var_val=}")
+                    if var_name == "DISTUTILS_USE_PEP517" and not has_distutils_pep517_non_standalone:
+                        var_val = item.node_str(var_node.children[-1])
 
-                # For DISTUTILS_USE_PEP517=standalone, the eclass doesn't
-                # provide ${DISTUTILS_DEPS}.
-                has_distutils_pep517_non_standalone = (var_val != "standalone")
-                #print(f"{has_distutils_pep517_non_standalone=}")
-            elif var_name == "DISTUTILS_OPTIONAL" and not has_distutils_optional:
-                has_distutils_optional = True
+                        # For DISTUTILS_USE_PEP517=standalone, the eclass doesn't
+                        # provide ${DISTUTILS_DEPS}.
+                        has_distutils_pep517_non_standalone = (var_val != "standalone")
 
-            if all([has_distutils_optional, has_distutils_pep517_non_standalone]):
-                # We always need BDEPEND for these if != standalone.
-                yield PythonMissingDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
-                break
+                    if all([has_distutils_optional, has_distutils_pep517_non_standalone]):
+                        # We always need BDEPEND for these if != standalone.
+                        yield PythonMissingDeps("BDEPEND", pkg=item, dep_value="DISTUTILS_DEPS")
 
-        #for node, _ in bash.var_assign_query(item.root_node):
-            # We're only interested in the top level bits, as
-            # the relevant variables should be set in global scope.
-            #print(node.child_by_field_name('name'))
+                        checks[check] = True
+                        continue
+
+                elif check == "MissingRequiredUse":
+                    if "PYTHON_REQUIRED_USE" in item.node_str(var_node.parent):
+                        has_distutils_required_use = True
+
+                        checks[check] = True
+                        continue
+
+                elif check == "MissingPythonDeps":
+                    if "PYTHON_DEPS" in item.node_str(var_node.parent):
+                        has_distutils_python_deps = True
+
+                        checks[check] = True
+                        continue
+
+        if not has_distutils_required_use:
+            yield PythonMissingRequiredUse(pkg=item)
+        if not has_distutils_python_deps:
+            yield PythonMissingDeps("RDEPEND", pkg=item)
+
 
 class PythonCompatCheck(Check):
     """Check python ebuilds for possible PYTHON_COMPAT updates.
