@@ -1,0 +1,7 @@
+pkgcheck.checks.reserved module
+===============================
+
+.. automodule:: pkgcheck.checks.reserved
+   :members:
+   :undoc-members:
+   :show-inheritance:
